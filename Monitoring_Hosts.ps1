@@ -6,82 +6,74 @@ $window.Title = "Server Status"
 $window.Width = 400
 $window.Height = 300
 
-# Gird to hold UI elements
+# Grid to hold UI elements
 $grid = New-Object System.Windows.Controls.Grid
 
-# GOOGLE
-$circle_google = New-Object System.Windows.Shapes.Ellipse
-$circle_google.Width = 10
-$circle_google.Height = 10
-$circle_google.HorizontalAlignment = "Left"
-$circle_google.VerticalAlignment = "Top"
-$circle_google.Fill = "Red" # Set initial color to green
-$circle_google.Margin = New-Object System.Windows.Thickness(0, 25, 0, 0) # Set margin to 0
+function CreateHostUIElement {
+    param (
+        [string]$hostName,
+        [string]$color,
+        [System.Windows.Thickness]$circleMargin,
+        [System.Windows.Thickness]$labelMargin
+    )
 
-$label_google = New-Object System.Windows.Controls.Label
-$label_google.Content = "Google"
-$label_google.HorizontalAlignment = "Left"
-$label_google.VerticalAlignment = "Top"
-$label_google.Margin = New-Object System.Windows.Thickness(15, 15, 0, 0) # Set margin to 0
+    $circle = New-Object System.Windows.Shapes.Ellipse
+    $circle.Width = 10
+    $circle.Height = 10
+    $circle.HorizontalAlignment = "Left"
+    $circle.VerticalAlignment = "Top"
+    $circle.Fill = $color
+    $circle.Margin = $circleMargin
 
+    $label = New-Object System.Windows.Controls.Label
+    $label.Content = $hostName
+    $label.HorizontalAlignment = "Left"
+    $label.VerticalAlignment = "Top"
+    $label.Margin = $labelMargin
 
-# BING
-$circle_bing = New-Object System.Windows.Shapes.Ellipse
-$circle_bing.Width = 10
-$circle_bing.Height = 10
-$circle_bing.HorizontalAlignment = "left"
-$circle_bing.VerticalAlignment = "Top"
-$circle_bing.Fill = "Red" # Set initial color to green
-$circle_bing.Margin = New-Object System.Windows.Thickness(0, 50, 0, 0) # Set margin to 0
+    return $circle, $label
+}
 
-$label_bing = New-Object System.Windows.Controls.Label
-$label_bing.Content = "Bing"
-$label_bing.HorizontalAlignment = "Left"
-$label_bing.VerticalAlignment = "Top"
-$label_bing.Margin = New-Object System.Windows.Thickness(15, 40, 0, 0) # Set margin to 0
+$hostsToMonitor = @("192.168.1.253", "bing.com", "192.168.1.2") # Add more hosts here
+$hosts = @{}
+$topMargin = 25
 
+foreach ($h in $hostsToMonitor) {
+    $newTopMargin = $topMargin - 10
+    $circleMargin = New-Object System.Windows.Thickness(0, $topMargin, 0, 0)
+    $labelMargin = New-Object System.Windows.Thickness(15, $newTopMargin, 0, 0)
+    $circle, $label = CreateHostUIElement -hostName $h -color "Red" -circleMargin $circleMargin -labelMargin $labelMargin
 
+    $grid.Children.Add($circle)
+    $grid.Children.Add($label)
 
-# Add the circle and label to the grid
-$grid.Children.Add($circle_google)
-$grid.Children.Add($circle_bing)
-$grid.Children.Add($label_google)
-$grid.Children.Add($label_bing)
+    $hosts[$h] = $circle
 
-# Add the grid to the window
-$window.Content = $grid
+    $topMargin += 25 # Increase the top margin for the next host
+}
 
 function CheckConnectivity {
     param (
-        [Parameter(Mandatory=$true)]
         [hashtable]$hosts
     )
 
-
-    foreach ($entry in $hosts.GetEnumerator()) {
-        $ComputerName = $entry.Name
-        $circle = $entry.Value
-        Write-Output $ComputerName
-        $connected = Test-Connection -ComputerName $ComputerName -Count 1 -Quiet
-
-        if ($connected) {
-            $circle.Fill = "Green"
+    foreach ($h in $hosts.Keys) {
+        if (Test-Connection -ComputerName $h -Count 1 -Quiet) {
+            $hosts[$h].Fill = "Green"
         } else {
-            $circle.Fill = "Red"
+            $hosts[$h].Fill = "Red"
         }
     }
 }
 
-# Create a hashtable of hosts and their corresponding circle objects
-$hosts = @{
-    "google.com" = $circle_google
-    "bing.com" = $circle_bing
-}
 
 
-# Call the CheckConnectivity function every 5 seconds
+# Add the grid to the window
+$window.Content = $grid
+
+
 $timer = New-Object System.Windows.Threading.DispatcherTimer
-$timer.Interval = [TimeSpan]::FromSeconds(5)
+$timer.Interval = [TimeSpan]::FromSeconds(5) # Check connectivity every 5 seconds
 $timer.Add_Tick({ CheckConnectivity -hosts $hosts })
 $timer.Start()
 
